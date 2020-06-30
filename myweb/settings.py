@@ -291,7 +291,7 @@ SIMPLEUI_CONFIG = {
             'name': '运维记录',
             'icon': 'fa fa-chevron-circle-right',
             'url': 'ops/opsrecord/'
-        }]
+        },]
     }, {
         'app': 'auth',
         'name': '权限认证',

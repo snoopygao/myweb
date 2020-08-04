@@ -138,11 +138,11 @@ SIMPLEUI_ANALYSIS = False
 
 SIMPLEUI_CONFIG = {
     'system_keep': False,
-    'menu_display': ['关联文档', '基础环境', '虚拟IT资产', '实体IT资产', '数据字典', '日常运维', '权限认证'],
+    'menu_display': ['商务信息', '基础环境', '虚拟IT资产', '实体IT资产', '数据字典', '日常运维', '权限认证'],
     'dynamic': True,
     'menus': [{
         'app': 'cmdb',
-        'name': '关联文档',
+        'name': '商务信息',
         'icon': 'fas fa-file-pdf',
         'models': [{
                 'name': '项目列表',
@@ -227,11 +227,11 @@ SIMPLEUI_CONFIG = {
                 'icon': 'fa fa-chevron-circle-right',
                 'url': 'cmdb/security/'
             },
-            {
-                'name': '网络接口',
-                'icon': 'fa fa-chevron-circle-right',
-                'url': 'cmdb/interface/'
-            },
+            # {
+            #     'name': '网络接口',
+            #     'icon': 'fa fa-chevron-circle-right',
+            #     'url': 'cmdb/interface/'
+            # },
             {
                 'name': '办公设备',
                 'icon': 'fa fa-chevron-circle-right',

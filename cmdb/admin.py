@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import *
+from polymorphic.admin import PolymorphicParentModelAdmin, PolymorphicChildModelAdmin, PolymorphicChildModelFilter
 from django.contrib.admin.templatetags.admin_modify import *
 from django.contrib.admin.templatetags.admin_modify import submit_row as original_submit_row
 
@@ -34,17 +35,17 @@ class SupplierAdmin(admin.ModelAdmin):
 
 @admin.register(DataCenter)
 class DCAdmin(admin.ModelAdmin):
-    list_display = ('name', 'address', 'contact', 'project')
+    list_display = ('name', 'address', 'contact', 'project', 'contract')
 
 
 @admin.register(Rack)
 class RackAdmin(admin.ModelAdmin):
-    list_display = ('name', 'height', 'dc', 'need_ops')
+    list_display = ('name', 'height', 'dc')
 
 
 @admin.register(Production)
 class ProAdmin(admin.ModelAdmin):
-    list_display = ('name', 'type', 'pro_link', 'login')
+    list_display = ('name', 'project', 'pro_link', 'login')
 
 
 @admin.register(Project)
@@ -62,10 +63,34 @@ class ServerIfInline(admin.StackedInline):
     extra = 1
 
 
+@admin.register(AssetCommon)
+class ACAdmin(PolymorphicParentModelAdmin):
+    base_model = AssetCommon
+    child_models = (Server, Switch, Storage, Security, DigitalAsset, FHSD, OfficeDevice, EndPointDevice, Lines)
+    list_display = ('asset_name', 'vendor', 'model', 'sn', 'project', 'warrany_start_date', 'warrany_end_date', 'mid_warranty_end', 'project_warranty_end')
+    list_filter = ('project', )
+    search_fields = ('asset_name',)
+
+    def project_warranty_end(self, obj):
+        return obj.project.warranty_end_date
+    project_warranty_end.short_description = '项目结束时间'
+
+    def mid_warranty_end(self, obj):
+        return obj.contract.end
+    mid_warranty_end.short_description = '中间商保修结束时间'
+
+    def has_delete_permission(self, request, obj=None):
+        # 禁用删除按钮
+        return False
+
+    def has_add_permission(self, request, ojb=None):
+        return False
+
+
 @admin.register(Server)
 class ServerAdmin(admin.ModelAdmin):
     inlines = [ServerIfInline]
-    list_display = ('asset_name', 'supllier', 'model', 'sn', 'os_ip', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
+    list_display = ('asset_name', 'vendor', 'model', 'sn', 'os_ip', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
 
 
 class SwitchIfInline(admin.StackedInline):
@@ -77,7 +102,7 @@ class SwitchIfInline(admin.StackedInline):
 @admin.register(Switch)
 class SwitchAdmin(admin.ModelAdmin):
     inlines = [SwitchIfInline]
-    list_display = ('asset_name', 'supllier', 'model', 'sn', 'device_type', 'app_type', 'net_type', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
+    list_display = ('asset_name', 'vendor', 'model', 'sn', 'device_type', 'app_type', 'net_type', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
 
 
 admin.site.register(VirtualInterface)
@@ -92,21 +117,25 @@ class StorageIfInline(admin.StackedInline):
 @admin.register(Storage)
 class StorageAdmin(admin.ModelAdmin):
     inlines = [StorageIfInline]
-    list_display = ('asset_name', 'supllier', 'model', 'sn', 'role', 'controller', 'mnt_address', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
+    list_display = ('asset_name', 'vendor', 'model', 'sn', 'role', 'controller', 'mnt_address', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
 
 
 admin.site.register(SafetyType)
 
 
-class SecurityIfInline(admin.StackedInline):
-    model = Interface
-    exclude = ['server_related', 'switch_related', 'storage_related']
-    extra = 1
-
-
+# class SecurityIfInline(admin.StackedInline):
+#     model = Interface
+#     exclude = ['server_related', 'switch_related', 'storage_related']
+#     extra = 1
+#
+#
+# @admin.register(Security)
+# class SecurityAdmin(admin.ModelAdmin):
+#     inlines = [SecurityIfInline]
 @admin.register(Security)
 class SecurityAdmin(admin.ModelAdmin):
-    inlines = [SecurityIfInline]
+    list_display = ('asset_name', 'vendor', 'model', 'sn', 'app_type', 'mnt_address', 'warrany_start_date',
+                    'warrany_end_date', 'project', 'asset_status')
 
 
 @admin.register(VirtualServer)
@@ -116,7 +145,7 @@ class VirSerAdmin(admin.ModelAdmin):
 
 @admin.register(DigitalAsset)
 class DigiAstAdmin(admin.ModelAdmin):
-    list_display = ('asset_name', 'supllier', 'soft_type', 'auth_type', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
+    list_display = ('asset_name', 'vendor', 'soft_type', 'auth_type', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
 
 
 admin.site.register(fhsds)
@@ -124,7 +153,7 @@ admin.site.register(fhsds)
 
 @admin.register(FHSD)
 class FHSDAdmin(admin.ModelAdmin):
-    list_display = ('asset_name', 'supllier', 'device_type', 'model', 'sn', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
+    list_display = ('asset_name', 'vendor', 'model', 'sn', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
 
 
 admin.site.register(OfficeDev)
@@ -132,7 +161,7 @@ admin.site.register(OfficeDev)
 
 @admin.register(OfficeDevice)
 class OfficeDeviceAdmin(admin.ModelAdmin):
-    list_display = ('asset_name', 'supllier', 'device_type', 'model', 'sn', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
+    list_display = ('asset_name', 'vendor', 'asset_type', 'model', 'sn', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
 
 
 admin.site.register(EPs)
@@ -140,7 +169,7 @@ admin.site.register(EPs)
 
 @admin.register(EndPointDevice)
 class EPDAdmin(admin.ModelAdmin):
-    list_display = ('asset_name', 'supllier', 'eps_type', 'model', 'sn', 'gbid', 'mnt_address', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
+    list_display = ('asset_name', 'vendor', 'asset_type', 'model', 'sn', 'gbid', 'warrany_start_date', 'warrany_end_date', 'project', 'asset_status')
 
 
 @admin.register(Lines)

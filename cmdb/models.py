@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
+from polymorphic.models import PolymorphicModel
 # from django.contrib.contenttypes.fields import GenericForeignKey
 # from django.contrib.contenttypes.fields import GenericRelation
 
@@ -31,10 +32,11 @@ class Project(models.Model):
     )
     project_name = models.CharField(max_length=50, verbose_name='项目名称')
     project_type = models.IntegerField(choices=project_types, verbose_name='项目类型')
+    city = models.ForeignKey(City, on_delete=models.DO_NOTHING, verbose_name='地市')
     commit_date = models.DateField(verbose_name='验收日期')
-    warranty_start_date = models.DateField(verbose_name='保修开始日期')
-    warranty_end_date = models.DateField(verbose_name='保修结束日期')
-    ops_start_data = models.DateField(verbose_name='交维日期')
+    warranty_start_date = models.DateField(verbose_name='保修开始日期', help_text='初验、终验或约定时间')
+    warranty_end_date = models.DateField(verbose_name='保修结束日期', help_text='根据招标与合同要求，一般终验后N年截止')
+    ops_start_data = models.DateField(verbose_name='交维日期', help_text='内部交维时间')
     ops_require = models.TextField(verbose_name='售后主要内容', help_text='响应时间，响应方式，SLA等')
     patrol_require = models.TextField(blank=True, null=True, verbose_name='巡检要求', help_text='内容，频次，报告相关要求等')
     project_participate = models.CharField(max_length=50, verbose_name='项目参与人', help_text='填写项目经理及工程师')
@@ -59,7 +61,7 @@ class Contract(models.Model):
     contract_type = models.IntegerField(choices=contract_types, verbose_name='合同类型')
     project = models.ForeignKey(Project, on_delete=models.DO_NOTHING, verbose_name='所属项目')
     start = models.DateField(verbose_name='合同开始时间')
-    end = models.DateField(verbose_name='合同终止时间')
+    end = models.DateField(verbose_name='合同终止时间', help_text='一般有约定的情况下从验收时间往后推售后服务结束时间')
     file = models.FileField(upload_to='files/contract/')
     contact = models.CharField(max_length=30, verbose_name='联系人', help_text='供货商/采购者主要联系人和联系方式')
 
@@ -73,7 +75,7 @@ class Contract(models.Model):
 
 # 资产类型
 class AssetType(models.Model):
-    name = models.CharField(max_length=20, verbose_name='资产类型字典', help_text='请使用通用型的分类，如:PC，服务器，交换机')
+    name = models.CharField(max_length=20, verbose_name='资产类型字典', help_text='请使用通用型的分类，如:服务器，交换机')
 
     class Meta:
         verbose_name = '资产类型字典'
@@ -102,6 +104,7 @@ class DataCenter(models.Model):
     name = models.CharField(max_length=30, verbose_name='机房/建筑名称')
     address = models.CharField(max_length=50, verbose_name='地址')
     project = models.ForeignKey(Project, on_delete=models.SET_NULL, blank=True, null=True, verbose_name='所属项目')
+    contract = models.ForeignKey(Contract, on_delete=models.DO_NOTHING, verbose_name='供应商合同')
     contact = models.CharField(max_length=50, verbose_name='机房/建筑联系人', help_text='记录进入机房/建筑需要联系的人及方式')
 
     class Meta:
@@ -117,11 +120,11 @@ class Rack(models.Model):
     name = models.CharField(max_length=10, verbose_name='机柜编号', help_text='类似A01,B05等')
     height = models.IntegerField(verbose_name='机柜高度U')
     dc = models.ForeignKey(DataCenter, verbose_name='所在机房', on_delete=models.SET_NULL, blank=True, null=True)
-    ops = (
-        (0, '不需要'),
-        (1, '需要'),
-    )
-    need_ops = models.IntegerField(verbose_name='是否需要维护', choices=ops, default=1)
+    # ops = (
+    #     (0, '不需要'),
+    #     (1, '需要'),
+    # )
+    # need_ops = models.IntegerField(verbose_name='是否需要维护', choices=ops, default=1)
 
     class Meta:
         verbose_name = '机柜'
@@ -133,22 +136,13 @@ class Rack(models.Model):
 
 # 业务
 class Production(models.Model):
-    pro_types = (
-        (0, '虚拟化'),
-        (1, '数据库'),
-        (2, 'HA双机'),
-        (3, '容灾'),
-        (4, '监控业务'),
-        (5, '分布式'),
-        (6, '其它业务')
-    )
-    name = models.CharField(max_length=30, verbose_name='业务名称')
-    type = models.IntegerField(choices=pro_types, verbose_name='业务类型', help_text='交换机和安全设备的堆叠可归类到HA或虚拟化')
-    pro_link = models.URLField(verbose_name='业务地址')
+    name = models.CharField(max_length=30, verbose_name='业务或平台名称')
+    project = models.ForeignKey(Project, on_delete=models.DO_NOTHING, verbose_name='所属项目')
+    pro_link = models.URLField(verbose_name='业务或平台地址', help_text='URL')
     login = models.CharField(max_length=30, verbose_name='用户名和密码')
 
     class Meta:
-        verbose_name = '业务'
+        verbose_name = '业务或平台'
         verbose_name_plural = verbose_name
 
     def __str__(self):
@@ -156,7 +150,7 @@ class Production(models.Model):
 
 
 # 通用资产抽象
-class AssetCommon(models.Model):
+class AssetCommon(PolymorphicModel):
     status = (
         ('在用', '在用'),
         ('闲置', '闲置'),
@@ -164,23 +158,22 @@ class AssetCommon(models.Model):
     )
     asset_type = models.ForeignKey(AssetType, on_delete=models.PROTECT, verbose_name='资产类型')
     asset_name = models.CharField(max_length=30, verbose_name='资产名称')
-    supllier = models.ForeignKey(Supplier, on_delete=models.PROTECT, verbose_name='品牌/供应商')
+    vendor = models.ForeignKey(Supplier, on_delete=models.PROTECT, verbose_name='品牌/供应商')
     model = models.CharField(max_length=30, verbose_name='资产型号')
     sn = models.CharField(max_length=50, verbose_name='序列号/ID/SN')
     project = models.ForeignKey(Project, on_delete=models.DO_NOTHING, verbose_name='所属项目')
     contract = models.ForeignKey(Contract, on_delete=models.DO_NOTHING, verbose_name='关联合同')
-    warrany_start_date = models.DateField(verbose_name='保修开始时间')
-    warrany_end_date = models.DateField(verbose_name='保修结束时间')
+    warrany_start_date = models.DateField(verbose_name='厂商保修开始时间')
+    warrany_end_date = models.DateField(verbose_name='厂商保修结束时间')
     rack = models.ForeignKey(Rack, on_delete=models.SET_NULL, blank=True, null=True, verbose_name='所在机柜')
     height = models.IntegerField(verbose_name='资产高度/u', blank=True, null=True)
     production = models.ForeignKey(Production, on_delete=models.SET_NULL, blank=True, null=True, verbose_name='所属业务')
-    mnt_address = models.GenericIPAddressField(verbose_name='管理地址', blank=True, null=True)
-    mnt_pass = models.CharField(max_length=20, verbose_name='用户名密码', blank=True, null=True)
+    # mnt_address = models.GenericIPAddressField(verbose_name='管理地址', blank=True, null=True)
+    # mnt_pass = models.CharField(max_length=20, verbose_name='用户名密码', blank=True, null=True)
     asset_status = models.CharField(max_length=10, choices=status, verbose_name='资产状态')
     memo = models.CharField(max_length=50, blank=True, null=True, verbose_name='备注')
 
     class Meta:
-        abstract = True
         ordering = ['project', 'asset_type', 'asset_status']
 
 
@@ -270,6 +263,8 @@ class Server(AssetCommon):
     os_ip = models.GenericIPAddressField(verbose_name='系统IP地址')
     login_method = models.CharField(max_length=30, verbose_name='系统登录方式', help_text='远程桌面/SSH等')
     login_pass = models.CharField(max_length=30, verbose_name='用户名密码')
+    mnt_address = models.GenericIPAddressField(verbose_name='带外管理地址', blank=True, null=True)
+    mnt_pass = models.CharField(max_length=20, verbose_name='带外管理用户名密码', blank=True, null=True)
     # network_card = GenericRelation(Interface)
 
     class Meta:
@@ -297,6 +292,8 @@ class Storage(AssetCommon):
     role = models.IntegerField(verbose_name='设备角色', choices=roles, default=0)
     disk = models.CharField(max_length=50, verbose_name='硬盘信息', help_text='SAS-SSD*10-RAID10;SAS-HDD*15-RAID6')
     controller = models.IntegerField(verbose_name='控制器数量', choices=ctl, default=2)
+    mnt_address = models.GenericIPAddressField(verbose_name='管理地址', blank=True, null=True)
+    mnt_pass = models.CharField(max_length=20, verbose_name='用户名密码', blank=True, null=True)
     power_supply = models.CharField(max_length=30, verbose_name='电源信息', help_text='750W * 2')
 
     class Meta:
@@ -331,8 +328,10 @@ class Switch(AssetCommon):
     net_type = models.IntegerField(verbose_name='设备网络类型', choices=n_type, default=0)
     # interface = models.ForeignKey(Interface, on_delete=models.SET_NULL, blank=True, null=True, verbose_name='接口信息')
     power_supply = models.CharField(max_length=30, verbose_name='电源信息', help_text='75W * 2')
+    mnt_address = models.GenericIPAddressField(verbose_name='管理地址', blank=True, null=True)
+    mnt_pass = models.CharField(max_length=20, verbose_name='用户名密码', blank=True, null=True)
     lic = models.CharField(max_length=1000, blank=True, null=True, verbose_name='设备授权信息')
-    neighbor = models.ForeignKey('self', on_delete=models.SET_NULL, blank=True, null=True, verbose_name='关联设备')
+    # neighbor = models.ForeignKey('self', on_delete=models.SET_NULL, blank=True, null=True, verbose_name='关联设备')
     configuration = models.TextField(max_length=3000, verbose_name='配置备份', help_text='将设备的配置信息粘贴到此处')
 
     class Meta:
@@ -360,6 +359,9 @@ class Security(AssetCommon):
     # interface = models.ForeignKey(Interface, on_delete=models.SET_NULL, blank=True, null=True, verbose_name='接口信息')
     power_supply = models.CharField(max_length=30, verbose_name='电源信息', help_text='750W * 2')
     disk = models.CharField(max_length=30, blank=True, null=True, verbose_name='硬盘信息', help_text='若含有硬盘，请记录。')
+    mnt_address = models.GenericIPAddressField(verbose_name='管理地址', blank=True, null=True)
+    mnt_pass = models.CharField(max_length=20, verbose_name='用户名密码', blank=True, null=True)
+    url_link = models.URLField(verbose_name='网页路径', blank=True, null=True, help_text='URL带端口')
     lic = models.CharField(max_length=1000, blank=True, null=True, verbose_name='设备授权信息')
     configuration = models.TextField(max_length=3000, verbose_name='配置备份', help_text='将设备的配置信息粘贴到此处')
 
@@ -406,10 +408,10 @@ class DigitalAsset(AssetCommon):
     )
     soft_type = models.IntegerField(verbose_name='软件类型', choices=soft_types, default=0)
     auth_type = models.IntegerField(verbose_name='授权类型', choices=auth_types, default=0)
-    model = models.CharField(verbose_name='详细授权信息', max_length=100, help_text='Windows Server 2016 DataCenter * 10 永久;'
+    auth_info = models.CharField(verbose_name='详细授权信息', max_length=100, help_text='Windows Server 2016 DataCenter * 10 永久;'
                                                                                     'Office 365 * 50 2022年9月30日；'
                                                                                     'IDS 模块 * 2 2020年10月1日')
-    sn = models.TextField(verbose_name='KEY文件', max_length=5000)
+    key = models.TextField(verbose_name='KEY文件', max_length=5000)
 
     class Meta:
         verbose_name = '数字资产'
@@ -432,14 +434,16 @@ class fhsds(models.Model):
 
 # 风火水电
 class FHSD(AssetCommon):
-    device_type = models.ForeignKey(fhsds, on_delete=models.SET_NULL, null=True, verbose_name='设备类型')
+    # device_type = models.ForeignKey(fhsds, on_delete=models.SET_NULL, null=True, verbose_name='设备类型')
+    # asset_type = models.ForeignKey(AssetType, on_delete=models.PROTECT, verbose_name='动环设备类型')
 
     class Meta:
         verbose_name = '基础环境设备'
         verbose_name_plural = verbose_name
 
     def __str__(self):
-        return self.device_type
+        # return '动环设备'
+        return self.asset_name
 
 
 class OfficeDev(models.Model):
@@ -455,37 +459,43 @@ class OfficeDev(models.Model):
 
 # 办公设备
 class OfficeDevice(AssetCommon):
-    device_type = models.ForeignKey(OfficeDev, on_delete=models.SET_NULL, null=True, verbose_name='设备类型')
+    # device_type = models.ForeignKey(OfficeDev, on_delete=models.SET_NULL, null=True, verbose_name='设备类型')
+    # asset_type = models.ForeignKey(AssetType, on_delete=models.PROTECT, verbose_name='办公设备类型')
 
     class Meta:
         verbose_name = '办公设备'
         verbose_name_plural = verbose_name
 
     def __str__(self):
-        return self.device_type
+        # return '办公设备'
+        return self.asset_name
 
 
 class EPs(models.Model):
-    name = models.CharField(max_length=20, verbose_name='终端设备字典', help_text='按照大类添加')
+    name = models.CharField(max_length=20, verbose_name='视频设备字典', help_text='按照大类添加')
 
     class Meta:
-        verbose_name = '终端设备字典'
+        verbose_name = '视频设备字典'
         verbose_name_plural = verbose_name
 
     def __str__(self):
         return self.name
 
 
-# 终端设备
+# 视频设备
 class EndPointDevice(AssetCommon):
-    eps_type = models.ForeignKey(EPs, on_delete=models.PROTECT, verbose_name='终端设备类型')
-    gbid = models.CharField(max_length=30, verbose_name='编码', help_text='设备ID，视频国标18位数字，其它按相应规则填写', null=True, blank=True)
+    # eps_type = models.ForeignKey(EPs, on_delete=models.PROTECT, verbose_name='视频设备类型')
+    # asset_type = models.ForeignKey(AssetType, on_delete=models.PROTECT, verbose_name='视频设备类型')
+    gbid = models.CharField(max_length=30, verbose_name='编码', help_text='设备ID，国标编码等，其它按相应规则填写', null=True, blank=True)
+    mac_address = models.CharField(max_length=30, verbose_name='MAC地址', help_text='网卡物理地址', null=True, blank=True)
+    phy_address = models.CharField(max_length=60, verbose_name='地理信息', help_text='经纬度', null=True, blank=True)
 
     class Meta:
-        verbose_name = '终端设备'
+        verbose_name = '视频设备'
         verbose_name_plural = verbose_name
 
     def __str__(self):
+        # return '视频设备'
         return self.asset_name
 
 
@@ -499,10 +509,10 @@ class Lines(AssetCommon):
         (4, 'IPTV'),
         (5, '固话/手机卡'),
     )
-    model = models.IntegerField(verbose_name='线路类型', choices=types)
+    tp = models.IntegerField(verbose_name='线路类型', choices=types)
     line_speed = models.CharField(max_length=10, verbose_name='线路速率', help_text='M或G')
     line_addr = models.CharField(max_length=100, verbose_name='线路物理地址', help_text='物联网卡和手机卡可定位到车辆或人员')
-    sn = models.CharField(max_length=20, verbose_name='线路代号', help_text='专线的代号，用于报修')
+    code = models.CharField(max_length=20, verbose_name='线路代号', help_text='专线的代号，用于报修')
     supllier = models.ForeignKey(Supplier, on_delete=models.PROTECT, verbose_name='运营商')
     mnt_address = models.GenericIPAddressField(verbose_name='出口地址', blank=True, null=True)
     mnt_pass = models.CharField(max_length=20, verbose_name='拨号鉴权信息', blank=True, null=True)
@@ -512,7 +522,5 @@ class Lines(AssetCommon):
         verbose_name_plural = verbose_name
 
     def __str__(self):
+        # return '线路'
         return self.asset_name
-
-
-

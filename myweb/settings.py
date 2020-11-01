@@ -32,6 +32,7 @@ ALLOWED_HOSTS = ['0.0.0.0', '127.0.0.1']
 
 INSTALLED_APPS = [
     'simpleui',
+    'polymorphic',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -138,9 +139,19 @@ SIMPLEUI_ANALYSIS = False
 
 SIMPLEUI_CONFIG = {
     'system_keep': False,
-    'menu_display': ['商务信息', '基础环境', '虚拟IT资产', '实体IT资产', '数据字典', '日常运维', '权限认证'],
+    'menu_display': ['资产汇总', '商务信息', '基础环境', '虚拟IT资产', '实体IT资产', '数据字典', '日常运维', '权限认证'],
     'dynamic': True,
     'menus': [{
+        'app': 'cmdb',
+        'name': '资产汇总',
+        'icon': 'fab fa-buffer',
+        'models': [{
+                'name': '实体资产总表',
+                'icon': 'fa fa-chevron-circle-right',
+                'url': 'cmdb/assetcommon/'
+            },
+        ]
+    }, {
         'app': 'cmdb',
         'name': '商务信息',
         'icon': 'fas fa-file-pdf',
@@ -238,7 +249,7 @@ SIMPLEUI_CONFIG = {
                 'url': 'cmdb/officedevice/'
             },
             {
-                'name': '终端设备',
+                'name': '视频设备',
                 'icon': 'fa fa-chevron-circle-right',
                 'url': 'cmdb/endpointdevice/'
             },
@@ -278,7 +289,7 @@ SIMPLEUI_CONFIG = {
                 'url': 'cmdb/officedev/'
             },
             {
-                'name': '终端设备字典',
+                'name': '视频设备字典',
                 'icon': 'fa fa-chevron-circle-right',
                 'url': 'cmdb/eps/'
             },
